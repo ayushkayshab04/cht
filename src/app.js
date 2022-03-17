@@ -1,5 +1,7 @@
 const path = require("path");
-const http = require("http")
+const http = require("http");
+const {User} = require("./models/user.js")
+const {Msg} = require("./models/message")
 const express = require("express");
 const socketio = require("socket.io");
 const { generateMessage , generateLocationmessage } = require("./utils/messages.js");
@@ -31,6 +33,8 @@ io.on("connection", (socket) => {
        }
 
         socket.join(user.room)
+        const userD = new User({name:user.username,socket_id:socket.id})
+        userD.save();
         socket.emit("message", generateMessage("Admin","welcome!"))
         socket.broadcast.to(user.room).emit("message", generateMessage("Admin",`${user.username} has joined the room`))
 
@@ -42,7 +46,8 @@ io.on("connection", (socket) => {
     })
 
     socket.on("sendMessage",  (message, callback) => {
-
+        const messaged = new Msg({message:message})
+        messaged.save();
         const user = getUsers(socket.id)
         io.to(user.room).emit("message", generateMessage(user.username,message))
         callback()
@@ -55,8 +60,11 @@ io.on("connection", (socket) => {
     })
 
     socket.on("disconnect", () => {
-
-        const user = removeUsers(socket.id)
+        const user = getUsers(socket.id)
+        // const user = removeUsers(socket.id)
+        const userd = User.findByIdAndDelete({socket_id:user.id})
+        console.log(userd)
+      
         if(user){
             io.to(user.room).emit("message", generateMessage(user.name,`${user.username} has left ${user.room} room`))
             io.to(user.room).emit("roomData",{
